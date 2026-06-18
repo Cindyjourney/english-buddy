@@ -217,6 +217,27 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Non-streaming fallback for browsers that don't support ReadableStream (Safari, etc.)
+app.post('/api/chat-json', async (req, res) => {
+  const { message, conversationHistory = [], interests = {}, isSessionStart = false } = req.body;
+  try {
+    const fullHistory = [...conversationHistory, { role: 'user', content: message }];
+    const messages = buildMessages(fullHistory, interests, isSessionStart);
+    const response = await openai.chat.completions.create({
+      model: MODEL,
+      max_tokens: 1024,
+      messages,
+    });
+    const fullText = response.choices[0]?.message?.content || '';
+    const badges = [...fullText.matchAll(/<<BADGE: (\w+)>>/g)].map(m => m[1]);
+    const words  = [...fullText.matchAll(/<<WORD: ([^>]+)>>/g)].map(m => m[1]);
+    res.json({ fullText, badges, words });
+  } catch (err) {
+    console.error('Chat JSON error:', err.message);
+    res.status(500).json({ error: 'Failed' });
+  }
+});
+
 app.post('/api/extract-interests', async (req, res) => {
   const { conversationHistory = [] } = req.body;
   try {
