@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>English Buddy 🌟</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="buddy-avatar" id="buddy-avatar">🌟</div>
+      <div class="header-title">
+        <h1>English Buddy</h1>
+        <p id="buddy-subtitle">Your Sunny English Friend!</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div id="header-badges" class="header-badges"></div>
+      <button id="reset-btn" class="reset-btn" title="重新开始">🔄</button>
+    </div>
+  </header>
+
+  <!-- Voice Style Selector -->
+  <div class="voice-selector">
+    <span class="voice-selector-label">声音</span>
+    <button class="voice-opt" data-style="sunny_girl">🌟 阳光女声</button>
+    <button class="voice-opt" data-style="girl">🌸 温柔女声</button>
+    <button class="voice-opt" data-style="sunny_boy">⚡ 阳光男声</button>
+    <button class="voice-opt" data-style="boy">🎯 温和男声</button>
+  </div>
+
+  <!-- Interests Panel -->
+  <div id="interests-panel" class="interests-panel" style="display:none">
+    <span class="interests-label">🌍 兴趣星球</span>
+    <div id="interest-tags" class="interest-tags"></div>
+  </div>
+
+  <!-- Chat Messages -->
+  <main id="messages" class="messages"></main>
+
+  <!-- Footer Input -->
+  <footer class="app-footer">
+    <button id="voice-btn" class="voice-btn" title="按住说英语">🎤</button>
+    <input
+      id="text-input"
+      class="text-input"
+      type="text"
+      placeholder="Type in English... 🌟"
+      autocomplete="off"
+    />
+    <button id="send-btn" class="send-btn">➤</button>
+  </footer>
+
+  <!-- Word Popup -->
+  <div id="word-popup" class="word-popup">
+    <div class="word-popup-inner">
+      <div class="word-icon">📖</div>
+      <div class="word-text"></div>
+      <div class="word-label">New Word!</div>
+    </div>
+  </div>
+
+  <!-- Badge Popup -->
+  <div id="badge-popup" class="badge-popup">
+    <div class="badge-popup-inner">
+      <div class="badge-emoji"></div>
+      <div class="badge-label"></div>
+      <div class="badge-sublabel">You earned a badge! 🎉</div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/interests.js"></script>
+  <script src="js/voice.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
