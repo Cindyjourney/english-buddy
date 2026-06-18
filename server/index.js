@@ -15,6 +15,8 @@ app.use(express.json({ limit: '2mb' }));
 const openai = new OpenAI({
   baseURL: 'https://api.deepseek.com',
   apiKey: process.env.DEEPSEEK_API_KEY,
+  timeout: 60000,   // 60s total timeout (cross-Pacific can be slow)
+  maxRetries: 2,    // auto-retry on network errors
 });
 
 const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
@@ -188,12 +190,18 @@ app.post('/api/chat', async (req, res) => {
     });
 
     let fullText = '';
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content;
-      if (delta) {
-        fullText += delta;
-        send({ type: 'text', content: delta });
+    try {
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) {
+          fullText += delta;
+          send({ type: 'text', content: delta });
+        }
       }
+    } catch (streamErr) {
+      // Network hiccup mid-stream — if we already have content, keep going
+      console.warn('Stream interrupted:', streamErr.message);
+      if (!fullText) throw streamErr; // nothing received, bubble up to outer catch
     }
 
     const badges = [...fullText.matchAll(/<<BADGE: (\w+)>>/g)].map(m => m[1]);
