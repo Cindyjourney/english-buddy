@@ -35,6 +35,7 @@ const VoiceManager = {
   isListening: false,
   currentStyle: 'sunny_girl',
 
+  _speechUnlocked: false,
   _ws: null,
   _audioCtx: null,
   _processor: null,
@@ -151,8 +152,22 @@ const VoiceManager = {
     this._stopMic();
   },
 
+  // Must be called synchronously inside a user gesture (tap/click) to unlock
+  // iOS Safari's speech synthesis for subsequent async calls
+  unlockSpeech() {
+    if (!this.synthesis || this._speechUnlocked) return;
+    const silent = new SpeechSynthesisUtterance('');
+    silent.volume = 0;
+    this.synthesis.speak(silent);
+    this._speechUnlocked = true;
+  },
+
   speak(text) {
     if (!this.synthesis) return;
+    // Reload voices if empty (iOS loads them lazily)
+    if (this.voices.length === 0) {
+      this.voices = this.synthesis.getVoices().filter(v => v.lang.startsWith('en'));
+    }
     this.synthesis.cancel();
 
     const profile = this.getProfile();

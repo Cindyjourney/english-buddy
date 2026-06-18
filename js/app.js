@@ -90,8 +90,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   voiceBtn.addEventListener('touchend', (e) => { e.preventDefault(); VoiceManager.stop(); });
 
-  // Send
+  // Send — unlock TTS synchronously (required for iOS Safari) before going async
   const doSend = () => {
+    VoiceManager.unlockSpeech();
     const text = textInput.value.trim();
     if (text && !ChatManager.isBusy) { textInput.value = ''; ChatManager.send(text); }
   };
