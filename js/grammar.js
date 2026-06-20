@@ -1,3 +1,14 @@
+const WRONG_ENCOURAGEMENTS = [
+  '没关系，再来一次！💪',
+  '继续加油，你可以的！🌟',
+  '差一点点！再试试！🌈',
+  '好棒的尝试！Keep going! 🚀',
+  '再接再厉，马上就会了！💫',
+  "Almost there! Don't give up! 🦋",
+  '每一次练习都让你更厉害！⚡',
+  "Great try! You're learning! 🎯",
+];
+
 const GrammarManager = {
   STORAGE_KEY: 'eb_grammar_progress',
   progress: {},          // { topicId: { stars: 0-3, attempts: 0 } }
@@ -336,12 +347,53 @@ const GrammarManager = {
     this.showFeedback(correct, ex.feedback);
   },
 
+  // ── Sound effects (Web Audio API, no files needed) ───────────────────────
+  playSound(type) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (type === 'correct') {
+        // Ascending cheerful ding: C5 → E5 → G5
+        [523, 659, 784].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const t = ctx.currentTime + i * 0.14;
+          gain.gain.setValueAtTime(0.28, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+          osc.start(t);
+          osc.stop(t + 0.35);
+        });
+      } else {
+        // Gentle descending "try again" tone
+        [330, 262].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const t = ctx.currentTime + i * 0.18;
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+          osc.start(t);
+          osc.stop(t + 0.38);
+        });
+      }
+    } catch (e) { /* AudioContext not supported, silently skip */ }
+  },
+
   // ── Feedback + Next ───────────────────────────────────────────────────────
   showFeedback(correct, text) {
+    this.playSound(correct ? 'correct' : 'wrong');
+
     const fb = document.getElementById('feedback-area');
     fb.hidden = false;
     fb.className = 'feedback-area ' + (correct ? 'feedback-correct' : 'feedback-wrong');
-    fb.innerHTML = (correct ? '✅ ' : '❌ ') + text;
+    const encourage = correct ? '' : `<div class="encouragement">${WRONG_ENCOURAGEMENTS[Math.floor(Math.random() * WRONG_ENCOURAGEMENTS.length)]}</div>`;
+    fb.innerHTML = (correct ? '✅ ' : '❌ ') + text + encourage;
 
     const footer = document.getElementById('exercise-footer');
     const topic = GRAMMAR_TOPICS[this.currentTopicId];
