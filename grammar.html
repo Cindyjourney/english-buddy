@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Grammar World — English Buddy</title>
+  <link rel="stylesheet" href="css/grammar.css">
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header class="grammar-header">
+    <a href="index.html" class="back-btn">← 聊天</a>
+    <div class="header-center">
+      <div class="header-title">📚 Grammar World</div>
+    </div>
+    <div class="header-stars">⭐ <span id="total-stars">0</span></div>
+  </header>
+
+  <!-- ── Overall progress ───────────────────────────────────── -->
+  <div class="overall-progress">
+    <div class="progress-bar">
+      <div class="progress-fill" id="overall-progress-fill" style="width:0%"></div>
+    </div>
+    <div class="progress-text"><span id="topics-done">0</span> / 20 topics done</div>
+  </div>
+
+  <!-- ── Stage cards (rendered by JS) ──────────────────────── -->
+  <main class="stages-container" id="stages-container"></main>
+
+  <!-- ── Exercise panel (modal, full-screen) ────────────────── -->
+  <div class="exercise-panel" id="exercise-panel" hidden>
+
+    <div class="exercise-header">
+      <button class="ex-back-btn" id="ex-back-btn">← Back</button>
+      <div class="ex-topic-name" id="ex-topic-name"></div>
+      <div class="ex-stars" id="ex-stars"></div>
+    </div>
+
+    <div class="ex-progress-bar">
+      <div class="ex-progress-fill" id="ex-progress-fill" style="width:0%"></div>
+    </div>
+    <div class="ex-progress-text" id="ex-progress-text">Let's learn first!</div>
+
+    <div class="exercise-content" id="exercise-content"></div>
+
+    <div class="exercise-footer" id="exercise-footer"></div>
+
+  </div>
+
+  <script src="js/grammar-content.js"></script>
+  <script src="js/grammar.js"></script>
+</body>
+</html>
