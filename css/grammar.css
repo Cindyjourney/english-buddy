@@ -110,22 +110,22 @@ body {
 .stage-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 18px;
+  gap: 14px;
+  padding: 20px 22px;
   font-weight: 800;
-  font-size: 1.15rem;
+  font-size: 2.3rem;
   color: #fff;
   letter-spacing: 0.01em;
 }
-.stage-icon { font-size: 1.4rem; }
+.stage-icon { font-size: 2.8rem; }
 .stage-title { flex: 1; }
-.stage-complete { font-size: 1.1rem; }
+.stage-complete { font-size: 2.2rem; }
 
 .topics-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  padding: 12px;
+  gap: 14px;
+  padding: 16px;
 }
 
 /* ── Topic button ────────────────────────────────────────────── */
@@ -133,10 +133,10 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 14px 10px;
+  gap: 10px;
+  padding: 22px 14px;
   border: none;
-  border-radius: 14px;
+  border-radius: 18px;
   cursor: pointer;
   transition: transform 0.15s, background 0.15s;
   line-height: 1.2;
@@ -160,9 +160,9 @@ body {
   border: 1.5px solid rgba(255,255,255,0.06);
 }
 
-.topic-icon  { font-size: 1.9rem; }
-.topic-title { font-size: 0.92rem; font-weight: 700; }
-.topic-stars { font-size: 0.85rem; min-height: 1.2em; }
+.topic-icon  { font-size: 3.8rem; }
+.topic-title { font-size: 1.84rem; font-weight: 700; }
+.topic-stars { font-size: 1.7rem; min-height: 1.2em; }
 .no-stars    { opacity: 0.28; }
 
 /* ── Exercise Panel (full-screen overlay) ────────────────────── */
@@ -558,9 +558,13 @@ body {
   body { font-size: 16px; }
   .options-grid { grid-template-columns: 1fr; gap: 10px; }
   .option-btn { padding: 16px 12px; font-size: 1rem; }
-  .topics-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .topic-btn { padding: 12px 6px; }
-  .topic-icon { font-size: 1.6rem; }
+  .topics-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .topic-btn { padding: 18px 8px; }
+  .topic-icon { font-size: 3rem; }
+  .topic-title { font-size: 1.4rem; }
+  .topic-stars { font-size: 1.3rem; }
+  .stage-header { font-size: 1.8rem; padding: 16px 18px; }
+  .stage-icon { font-size: 2.2rem; }
   .ex-title { font-size: 1.5rem; }
   .ex-question { font-size: 1.1rem; }
 }
