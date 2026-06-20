@@ -5,6 +5,8 @@
 
 /* ── Reset & base ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* Ensure [hidden] attribute always wins over display:flex/block on panels */
+[hidden] { display: none !important; }
 
 body {
   font-family: 'Segoe UI', 'PingFang SC', system-ui, sans-serif;
