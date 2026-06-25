@@ -2,7 +2,7 @@
 const GRAMMAR_STAGES = [
   { id: 'stage1', title: 'Word World',     icon: '🔤', color: '#ec4899', topics: ['nouns','verbs','adjectives','articles','pronouns'] },
   { id: 'stage2', title: 'Sentence World', icon: '🏗️', color: '#f97316', topics: ['subject_verb','be_verb','svo','plural_nouns'] },
-  { id: 'stage3', title: 'Tense World',    icon: '⏰', color: '#8b5cf6', topics: ['simple_present','present_continuous','simple_past','simple_future'] },
+  { id: 'stage3', title: 'Tense World',    icon: '⏰', color: '#8b5cf6', topics: ['simple_present','present_continuous','simple_past','simple_future','present_perfect','past_continuous','past_perfect','future_continuous'] },
   { id: 'stage4', title: 'Question World', icon: '❓', color: '#06b6d4', topics: ['yes_no_questions','wh_questions','negatives'] },
   { id: 'stage5', title: 'Power Words',    icon: '💪', color: '#10b981', topics: ['can_cannot','have_has','prepositions','comparatives'] },
 ];
@@ -219,6 +219,70 @@ const GRAMMAR_TOPICS = {
       { type: 'fill', sentence: 'It ___ rain tomorrow.', answer: 'will', hint: '🌧️ the future helper word', feedback: 'WILL rain — use "will" for future events! 🌧️' },
       { type: 'arrange', prompt: 'Build the sentence:', words: ['visit','will','grandma','We'], correctOrder: [3,1,0,2], sentence: 'We will visit grandma', feedback: 'WE WILL VISIT — future tense! 👵' },
       { type: 'choose', question: 'Which sentence is CORRECT?', options: ['I will goes home.','She will eating lunch.','He will play football.','They will ran fast.'], answer: 2, feedback: '"He will play football" — will + play (base verb)! ⚽' },
+    ],
+  },
+
+  present_perfect: {
+    id: 'present_perfect', title: 'Present Perfect', subtitle: 'Have you ever...?', icon: '✨', stage: 'stage3',
+    explanation: {
+      rule: 'Use Present Perfect for past actions that CONNECT to now! Formula: have/has + past participle (verb-3)',
+      examples: ['I have eaten lunch. 🍽️', 'She has finished homework. 📝', 'They have visited Paris. 🗼'],
+      tip: 'I/You/We/They → HAVE. He/She/It → HAS. eat→eaten, finish→finished, go→gone',
+    },
+    exercises: [
+      { type: 'choose', question: 'I ___ already eaten dinner.', options: ['have','has','had','am'], answer: 0, feedback: 'HAVE eaten — use HAVE with I! 🍽️' },
+      { type: 'choose', question: 'She ___ finished her homework.', options: ['have','had','has','is'], answer: 2, feedback: 'HAS finished — use HAS with she/he/it! 📝' },
+      { type: 'fill', sentence: 'They ___ never seen snow.', answer: 'have', hint: '❄️ they + present perfect', feedback: 'HAVE seen — use HAVE with they! ❄️' },
+      { type: 'arrange', prompt: 'Build the sentence:', words: ['visited','has','She','Paris'], correctOrder: [2,1,0,3], sentence: 'She has visited Paris', feedback: 'She HAS VISITED — has + past participle! 🗼' },
+      { type: 'choose', question: 'Which sentence is CORRECT?', options: ['He have eaten.','I has finished.','We have done it.','She have gone.'], answer: 2, feedback: '"We have done it" — HAVE with we! ✅' },
+    ],
+  },
+
+  past_continuous: {
+    id: 'past_continuous', title: 'Past Continuous', subtitle: 'What was happening then', icon: '🎬', stage: 'stage3',
+    explanation: {
+      rule: 'Use Past Continuous for actions IN PROGRESS at a moment in the past! Formula: was/were + verb-ing',
+      examples: ['I was sleeping at 9pm. 😴', 'She was cooking dinner. 🍳', 'They were playing outside. ⚽'],
+      tip: 'I/He/She/It → WAS + -ing. You/We/They → WERE + -ing.',
+    },
+    exercises: [
+      { type: 'choose', question: 'At 8pm, I ___ watching TV.', options: ['is','am','was','were'], answer: 2, feedback: 'WAS watching — use WAS with I! 📺' },
+      { type: 'choose', question: 'They ___ playing football at noon.', options: ['was','is','were','are'], answer: 2, feedback: 'WERE playing — use WERE with they! ⚽' },
+      { type: 'fill', sentence: 'She was ___ when I called.', answer: 'sleeping', hint: '😴 sleep + -ing', feedback: 'SLEEPING — was + verb-ing! 😴' },
+      { type: 'arrange', prompt: 'Build the sentence:', words: ['singing','was','The','bird'], correctOrder: [2,3,1,0], sentence: 'The bird was singing', feedback: 'The bird WAS SINGING — past continuous! 🐦' },
+      { type: 'choose', question: 'Which sentence is CORRECT?', options: ['He were running.','I was dance.','We were eating lunch.','She was ate.'], answer: 2, feedback: '"We were eating lunch" — WERE + verb-ING! 🍽️' },
+    ],
+  },
+
+  past_perfect: {
+    id: 'past_perfect', title: 'Past Perfect', subtitle: 'Before the past!', icon: '⏪', stage: 'stage3',
+    explanation: {
+      rule: 'Use Past Perfect for something that happened BEFORE another past event! Formula: had + past participle',
+      examples: ['She had left before I arrived. 🚪', 'He had eaten before we came. 🍽️', 'They had finished when it rained. ☔'],
+      tip: 'HAD + verb-3 is the same for ALL subjects! (I/you/he/she/we/they → HAD)',
+    },
+    exercises: [
+      { type: 'choose', question: 'She ___ already left when I arrived.', options: ['has','have','had','was'], answer: 2, feedback: 'HAD left — past perfect! Something finished before another past action! 🚪' },
+      { type: 'choose', question: 'They ___ eaten before the movie started.', options: ['have','had','has','were'], answer: 1, feedback: 'HAD eaten — HAD works with ALL subjects! 🍿' },
+      { type: 'fill', sentence: 'He had ___ the book before class.', answer: 'read', hint: '📖 read → read (irregular!)', feedback: 'HAD READ — past participle of "read"! 📖' },
+      { type: 'arrange', prompt: 'Build the sentence:', words: ['finished','had','We','homework','our'], correctOrder: [2,1,0,4,3], sentence: 'We had finished our homework', feedback: 'We HAD FINISHED — had + past participle! ✅' },
+      { type: 'choose', question: 'Which sentence is CORRECT?', options: ['He had went home.','She had goed.','I had eaten dinner.','They had runned.'], answer: 2, feedback: '"I had eaten dinner" — HAD + eaten (past participle of eat)! 🍽️' },
+    ],
+  },
+
+  future_continuous: {
+    id: 'future_continuous', title: 'Future Continuous', subtitle: 'Will be doing!', icon: '🔮', stage: 'stage3',
+    explanation: {
+      rule: 'Use Future Continuous for actions that WILL BE IN PROGRESS in the future! Formula: will be + verb-ing',
+      examples: ['I will be studying tonight. 📚', 'She will be traveling tomorrow. ✈️', 'They will be sleeping at 10pm. 😴'],
+      tip: 'will be + verb-ING is the same for ALL subjects! (I/she/they → will be + -ing)',
+    },
+    exercises: [
+      { type: 'choose', question: 'This time tomorrow, I ___ flying to Tokyo.', options: ['will be','will is','am going','be will'], answer: 0, feedback: 'WILL BE flying — will be + verb-ing! ✈️' },
+      { type: 'choose', question: 'At 9pm, she ___ watching the show.', options: ['will be','will is','is','will'], answer: 0, feedback: 'WILL BE watching — future continuous! 📺' },
+      { type: 'fill', sentence: 'They will be ___ all day.', answer: 'studying', hint: '📚 study + -ing', feedback: 'STUDYING — will be + verb-ing! 📚' },
+      { type: 'arrange', prompt: 'Build the sentence:', words: ['sleeping','be','He','will'], correctOrder: [2,3,1,0], sentence: 'He will be sleeping', feedback: 'He WILL BE SLEEPING — future continuous! 😴' },
+      { type: 'choose', question: 'Which sentence is CORRECT?', options: ['She will being dance.','I will be running.','We will is eating.','He will be go.'], answer: 1, feedback: '"I will be running" — will be + verb-ING! 🏃' },
     ],
   },
 
