@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Academic Grammar — English Buddy TOEFL</title>
+  <link rel="stylesheet" href="css/grammar.css">
+  <style>
+    /* TOEFL-specific overrides */
+    .grammar-header { background: linear-gradient(135deg, #1e3a5f 0%, #2d5986 100%); }
+    .stage-card { --stage-color: #3b82f6; }
+
+    /* passage-vocab exercise */
+    .passage-block {
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 14px;
+      padding: 16px 20px;
+      font-size: 1.15rem;
+      line-height: 1.85;
+      color: #e2e8f0;
+      margin-bottom: 18px;
+    }
+    .passage-blank {
+      display: inline-block;
+      background: rgba(251,191,36,0.25);
+      border: 1.5px dashed #fbbf24;
+      border-radius: 6px;
+      padding: 0 10px;
+      color: #fde68a;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    /* sentence-improve exercise */
+    .original-sentence {
+      background: rgba(239,68,68,0.12);
+      border-left: 4px solid #ef4444;
+      border-radius: 0 10px 10px 0;
+      padding: 12px 16px;
+      font-size: 1.15rem;
+      line-height: 1.7;
+      color: #fca5a5;
+      margin-bottom: 18px;
+    }
+    .original-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #f87171;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header class="grammar-header">
+    <a href="index.html" class="back-btn">← Home</a>
+    <div class="header-center">
+      <div class="header-title">🎓 TOEFL Grammar</div>
+    </div>
+    <div class="header-stars">⭐ <span id="total-stars">0</span></div>
+  </header>
+
+  <!-- ── Overall progress ───────────────────────────────────── -->
+  <div class="overall-progress">
+    <div class="progress-bar">
+      <div class="progress-fill" id="overall-progress-fill" style="width:0%"></div>
+    </div>
+    <div class="progress-text"><span id="topics-done">0</span> / 25 topics done</div>
+  </div>
+
+  <!-- ── Stage cards (rendered by JS) ──────────────────────── -->
+  <main class="stages-container" id="stages-container"></main>
+
+  <!-- ── Exercise panel (modal, full-screen) ────────────────── -->
+  <div class="exercise-panel" id="exercise-panel" hidden>
+
+    <div class="exercise-header">
+      <button class="ex-back-btn" id="ex-back-btn">← Back</button>
+      <div class="ex-topic-name" id="ex-topic-name"></div>
+      <div class="ex-stars" id="ex-stars"></div>
+    </div>
+
+    <div class="ex-progress-bar">
+      <div class="ex-progress-fill" id="ex-progress-fill" style="width:0%"></div>
+    </div>
+    <div class="ex-progress-text" id="ex-progress-text">Let's learn first!</div>
+
+    <div class="exercise-content" id="exercise-content"></div>
+
+    <div class="exercise-footer" id="exercise-footer"></div>
+
+  </div>
+
+  <script src="js/toefl-grammar-content.js"></script>
+  <script src="js/grammar.js"></script>
+  <script>
+    // Override storage key so TOEFL progress is separate from children's progress
+    GrammarManager.STORAGE_KEY = 'eb_toefl_grammar_progress';
+  </script>
+</body>
+</html>

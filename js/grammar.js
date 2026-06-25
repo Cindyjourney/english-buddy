@@ -227,6 +227,34 @@ const GrammarManager = {
       input.addEventListener('keydown', e => { if (e.key === 'Enter') doCheck(); });
       input.focus();
 
+    } else if (ex.type === 'sentence-improve') {
+      content.innerHTML = `
+        <div class="ex-question">${ex.question}</div>
+        <div class="original-label">Original sentence:</div>
+        <div class="original-sentence">${ex.original}</div>
+        <div class="options-grid">
+          ${ex.options.map((opt, i) => `<button class="option-btn" data-index="${i}">${opt}</button>`).join('')}
+        </div>
+        <div class="feedback-area" id="feedback-area" hidden></div>
+      `;
+      content.querySelectorAll('.option-btn').forEach(btn => {
+        btn.addEventListener('click', () => this.checkChoose(parseInt(btn.dataset.index), ex));
+      });
+
+    } else if (ex.type === 'passage-vocab') {
+      const passageHTML = ex.passage.replace(/\[BLANK\]/g, '<span class="passage-blank">[BLANK]</span>');
+      content.innerHTML = `
+        <div class="passage-block">${passageHTML}</div>
+        <div class="ex-question">${ex.question}</div>
+        <div class="options-grid">
+          ${ex.options.map((opt, i) => `<button class="option-btn" data-index="${i}">${opt}</button>`).join('')}
+        </div>
+        <div class="feedback-area" id="feedback-area" hidden></div>
+      `;
+      content.querySelectorAll('.option-btn').forEach(btn => {
+        btn.addEventListener('click', () => this.checkChoose(parseInt(btn.dataset.index), ex));
+      });
+
     } else if (ex.type === 'arrange') {
       const shuffled = [...ex.words]; // already "scrambled" per content
       content.innerHTML = `

@@ -6,4 +6,5 @@ const CONFIG = {
   API_BASE: isLocalDev ? 'http://localhost:3001' : window.location.origin,
   MAX_HISTORY: 20,
   EXTRACT_EVERY: 3,
+  TOEFL_MODE: false,
 };

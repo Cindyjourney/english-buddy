@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>TOEFL Writing — English Buddy</title>
+  <link rel="stylesheet" href="css/grammar.css">
+  <style>
+    /* TOEFL writing theme */
+    .grammar-header { background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); }
+
+    /* Writing-specific extras */
+    .write-prompt { white-space: pre-wrap; font-size: 1.3rem; }
+    .write-guides {
+      background: rgba(16,185,129,0.12);
+      border: 1.5px solid rgba(16,185,129,0.35);
+      border-radius: 14px;
+      padding: 14px 18px;
+      margin: 14px 0;
+      font-size: 1.1rem;
+      line-height: 1.7;
+      color: #d1fae5;
+    }
+    .write-guides ul { margin: 8px 0 0 16px; padding: 0; }
+    .write-guides li { margin-bottom: 5px; }
+    .write-input {
+      width: 100%;
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(16,185,129,0.4);
+      border-radius: 14px;
+      color: #f0fdf4;
+      font-size: 1.15rem;
+      line-height: 1.7;
+      padding: 14px 16px;
+      resize: vertical;
+      min-height: 130px;
+      box-sizing: border-box;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .write-input:focus { outline: none; border-color: #10b981; }
+    .write-input:disabled { opacity: 0.7; }
+    .word-count-bar {
+      font-size: 1rem;
+      color: #9ca3af;
+      margin: 6px 0 10px;
+    }
+    .word-target { color: #6b7280; font-size: 0.9rem; margin-left: 4px; }
+    .feedback-write {
+      background: rgba(16,185,129,0.12);
+      border: 2px solid rgba(16,185,129,0.4);
+      border-radius: 14px;
+      padding: 16px;
+      margin-top: 14px;
+    }
+    .write-score {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #10b981;
+      margin-bottom: 14px;
+    }
+    .model-label {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #6ee7b7;
+      margin-bottom: 8px;
+    }
+    .model-text {
+      font-size: 1.1rem;
+      line-height: 1.8;
+      color: #d1fae5;
+      background: rgba(0,0,0,0.2);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header class="grammar-header">
+    <a href="index.html" class="back-btn">← Home</a>
+    <div class="header-center">
+      <div class="header-title">📝 TOEFL Writing</div>
+    </div>
+    <div class="header-stars">⭐ <span id="total-stars">0</span></div>
+  </header>
+
+  <!-- ── Overall progress ───────────────────────────────────── -->
+  <div class="overall-progress">
+    <div class="progress-bar">
+      <div class="progress-fill" id="overall-progress-fill" style="width:0%"></div>
+    </div>
+    <div class="progress-text"><span id="topics-done">0</span> / <span id="total-topics">22</span> topics done</div>
+  </div>
+
+  <!-- ── Stage cards (rendered by JS) ──────────────────────── -->
+  <main class="stages-container" id="stages-container"></main>
+
+  <!-- ── Exercise panel (modal, full-screen) ────────────────── -->
+  <div class="exercise-panel" id="exercise-panel" hidden>
+
+    <div class="exercise-header">
+      <button class="ex-back-btn" id="ex-back-btn">← Back</button>
+      <div class="ex-topic-name" id="ex-topic-name"></div>
+      <div class="ex-stars" id="ex-stars"></div>
+    </div>
+
+    <div class="ex-progress-bar">
+      <div class="ex-progress-fill" id="ex-progress-fill" style="width:0%"></div>
+    </div>
+    <div class="ex-progress-text" id="ex-progress-text">Let's learn first!</div>
+
+    <div class="exercise-content" id="exercise-content"></div>
+
+    <div class="exercise-footer" id="exercise-footer"></div>
+
+  </div>
+
+  <script src="js/toefl-writing-content.js"></script>
+  <script src="js/writing.js"></script>
+  <script>
+    // Override storage key so TOEFL progress is separate from children's progress
+    WritingManager.STORAGE_KEY = 'eb_toefl_writing_progress';
+  </script>
+</body>
+</html>

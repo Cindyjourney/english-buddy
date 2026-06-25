@@ -168,6 +168,74 @@ function buildMessages(history, interests, isSessionStart) {
   return [...messages, ...historyMsgs];
 }
 
+const TOEFL_SPEAKING_PROMPT = `You are an expert TOEFL iBT Speaking coach. Your role is to evaluate student speaking responses and provide structured, actionable feedback in JSON format.
+
+When you receive a speaking task and a student's response, analyze it and return ONLY valid JSON with this exact structure:
+{
+  "content_score": <1-4>,
+  "delivery_score": <1-4>,
+  "language_score": <1-4>,
+  "overall_level": "<Basic|Fair|Good|Excellent>",
+  "content_feedback": "<1-2 sentences on relevance and development of ideas>",
+  "delivery_suggestions": ["<tip 1>", "<tip 2>"],
+  "vocabulary_highlights": ["<word or phrase to improve>"],
+  "model_sentence": "<one improved sentence rewriting a weak part of their response>",
+  "next_prompt": "<one follow-up speaking prompt to continue practice>"
+}
+
+Scoring rubric:
+- Content (1-4): 1=off-topic/very limited, 2=relevant but underdeveloped, 3=clear with some support, 4=fully developed with specific details
+- Delivery (1-4): 1=very hesitant/many pauses, 2=somewhat fluent with noticeable pauses, 3=generally fluent, 4=smooth and natural
+- Language (1-4): 1=very limited vocabulary/many errors, 2=adequate but repetitive, 3=varied with minor errors, 4=precise and accurate
+
+Be encouraging but honest. Always provide specific, actionable suggestions. Output ONLY the JSON object, no other text.`;
+
+app.post('/api/toefl-speaking', async (req, res) => {
+  const { task, response: studentResponse } = req.body;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+  try {
+    const messages = [
+      { role: 'system', content: TOEFL_SPEAKING_PROMPT },
+      { role: 'user', content: `TASK: ${task}\n\nSTUDENT RESPONSE: ${studentResponse}` },
+    ];
+
+    const stream = await openai.chat.completions.create({
+      model: MODEL,
+      max_tokens: 1024,
+      messages,
+      stream: true,
+    });
+
+    let fullText = '';
+    try {
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) {
+          fullText += delta;
+          send({ type: 'text', content: delta });
+        }
+      }
+    } catch (streamErr) {
+      console.warn('TOEFL speaking stream interrupted:', streamErr.message);
+      if (!fullText) throw streamErr;
+    }
+
+    send({ type: 'done', fullText });
+    res.end();
+  } catch (err) {
+    console.error('TOEFL speaking error:', err.message);
+    send({ type: 'error', message: 'Unable to evaluate response. Please try again.' });
+    res.end();
+  }
+});
+
 app.post('/api/chat', async (req, res) => {
   const { message, conversationHistory = [], interests = {}, isSessionStart = false } = req.body;
 
