@@ -59,37 +59,59 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Apply saved (or default) voice style on load
   applyVoiceStyle(VoiceManager.currentStyle);
 
-  if (!VoiceManager.isSupported) {
+  if (VoiceManager.isWeChatMode) {
+    // ── Mobile WeChat: tap button → native file recorder → iFlytek transcription ──
+    voiceBtn.title = '点击录音 🎙️';
+    voiceBtn.addEventListener('click', async () => {
+      if (ChatManager.isBusy || VoiceManager.isListening) return;
+      VoiceManager.unlockSpeech();   // unlock TTS while inside click (user gesture)
+      VoiceManager.isListening = true;
+      voiceBtn.classList.add('recording');
+      voiceBtn.title = '录音中… 点击停止';
+
+      const transcript = await VoiceManager.startWeChat();
+
+      voiceBtn.classList.remove('recording');
+      voiceBtn.title = '点击录音 🎙️';
+      VoiceManager.isListening = false;
+
+      if (transcript?.trim()) {
+        textInput.value = '';
+        ChatManager.send(transcript.trim());
+      }
+    });
+  } else if (!VoiceManager.isSupported) {
     voiceBtn.disabled = true;
-    voiceBtn.title = isWeChat ? '请使用文字输入 ✏️' : '麦克风不可用（检查浏览器权限）';
-    if (isWeChat) voiceBtn.style.opacity = '0.35';
+    voiceBtn.title = '麦克风不可用（检查浏览器权限）';
+  } else {
+    // ── Normal browsers: hold-to-record via iFlytek WebSocket ──
+
+    // Hold-to-record — mouse
+    voiceBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (!VoiceManager.isSupported || ChatManager.isBusy) return;
+      voiceBtn.classList.add('recording');
+      textInput.value = '';
+      VoiceManager.start();
+    });
+    voiceBtn.addEventListener('mouseup',   () => VoiceManager.stop());
+    voiceBtn.addEventListener('mouseleave', () => { if (VoiceManager.isListening) VoiceManager.stop(); });
+
+    // Hold-to-record — touch
+    voiceBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (!VoiceManager.isSupported || ChatManager.isBusy) return;
+      voiceBtn.classList.add('recording');
+      textInput.value = '';
+      VoiceManager.start();
+    });
+    voiceBtn.addEventListener('touchend', (e) => { e.preventDefault(); VoiceManager.stop(); });
   }
 
-  // Voice style buttons
+  // Voice style buttons always available (outside the if/else above for WeChat too)
   document.querySelectorAll('.voice-opt').forEach(btn => {
     btn.addEventListener('click', () => applyVoiceStyle(btn.dataset.style));
   });
-
-  // Hold-to-record — mouse
-  voiceBtn.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    if (!VoiceManager.isSupported || ChatManager.isBusy) return;
-    voiceBtn.classList.add('recording');
-    textInput.value = '';
-    VoiceManager.start();
-  });
-  voiceBtn.addEventListener('mouseup',   () => VoiceManager.stop());
-  voiceBtn.addEventListener('mouseleave', () => { if (VoiceManager.isListening) VoiceManager.stop(); });
-
-  // Hold-to-record — touch
-  voiceBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    if (!VoiceManager.isSupported || ChatManager.isBusy) return;
-    voiceBtn.classList.add('recording');
-    textInput.value = '';
-    VoiceManager.start();
-  });
-  voiceBtn.addEventListener('touchend', (e) => { e.preventDefault(); VoiceManager.stop(); });
 
   // Send — unlock TTS synchronously (required for iOS Safari) before going async
   const doSend = () => {

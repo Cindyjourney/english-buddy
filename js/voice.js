@@ -32,6 +32,7 @@ const VoiceManager = {
   synthesis: window.speechSynthesis,
   voices: [],
   isSupported: false,
+  isWeChatMode: false,   // true on mobile WeChat — uses file-based recording
   isListening: false,
   currentStyle: 'sunny_girl',
 
@@ -49,11 +50,20 @@ const VoiceManager = {
     this._onResult = onResult;
     this._onEnd = onEnd;
 
-    // Load saved style
     this.currentStyle = localStorage.getItem('eb_voice_style') || 'sunny_girl';
 
-    // WeChat built-in browser blocks getUserMedia — skip mic entirely
-    if (isWeChat) return;
+    const loadVoices = () => {
+      this.voices = this.synthesis.getVoices().filter(v => v.lang.startsWith('en'));
+    };
+    loadVoices();
+    this.synthesis.addEventListener('voiceschanged', loadVoices);
+
+    // Mobile WeChat: getUserMedia is blocked — use file-based recording instead
+    if (isMobileWeChat) {
+      this.isWeChatMode = true;
+      this.isSupported = true;
+      return;
+    }
 
     if (!navigator.mediaDevices?.getUserMedia) return;
     try {
@@ -63,12 +73,81 @@ const VoiceManager = {
     } catch (e) {
       console.warn('Mic permission denied:', e.message);
     }
+  },
 
-    const loadVoices = () => {
-      this.voices = this.synthesis.getVoices().filter(v => v.lang.startsWith('en'));
-    };
-    loadVoices();
-    this.synthesis.addEventListener('voiceschanged', loadVoices);
+  // Open native file picker for audio recording in WeChat.
+  // Resolves with transcript string, or null on cancel / error.
+  startWeChat() {
+    return new Promise((resolve) => {
+      const fileInput = document.getElementById('wechat-audio-input');
+      if (!fileInput) { resolve(null); return; }
+
+      let settled = false;
+      const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+
+      // Detect picker cancellation: window regains focus when picker closes without a file
+      const onFocus = () => {
+        setTimeout(() => {
+          if (!settled && (!fileInput.files || fileInput.files.length === 0)) done(null);
+        }, 500);
+      };
+      window.addEventListener('focus', onFocus, { once: true });
+
+      fileInput.onchange = async (e) => {
+        window.removeEventListener('focus', onFocus);
+        const file = e.target.files?.[0];
+        if (!file) { done(null); return; }
+
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pcm16 = await this._decodeAudioToPCM16(arrayBuffer);
+          const audio = this._toBase64(pcm16);
+
+          const res = await fetch(`${CONFIG.API_BASE}/api/transcribe`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audio }),
+          });
+          const data = await res.json();
+          done(data.text || null);
+        } catch (err) {
+          console.error('WeChat transcription error:', err.message);
+          done(null);
+        } finally {
+          fileInput.value = '';
+        }
+      };
+
+      fileInput.click();
+    });
+  },
+
+  // Decode any audio format → PCM16 Int16Array at 16 kHz mono using Web Audio API
+  async _decodeAudioToPCM16(arrayBuffer) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+
+    // Decode at native sample rate
+    const tempCtx = new AudioCtx();
+    let audioBuffer;
+    try {
+      audioBuffer = await new Promise((res, rej) =>
+        tempCtx.decodeAudioData(arrayBuffer.slice(0), res, rej)
+      );
+    } finally {
+      tempCtx.close().catch(() => {});
+    }
+
+    // Resample to 16 kHz mono via OfflineAudioContext
+    const TARGET_RATE = 16000;
+    const numFrames = Math.ceil(audioBuffer.duration * TARGET_RATE);
+    const offCtx = new OfflineAudioContext(1, numFrames, TARGET_RATE);
+    const src = offCtx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.connect(offCtx.destination);
+    src.start(0);
+    const rendered = await offCtx.startRendering();
+
+    return this._toPCM16(rendered.getChannelData(0));
   },
 
   setStyle(key) {

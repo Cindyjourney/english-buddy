@@ -3,6 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const path = require('path');
 const OpenAI = require('openai');
+const WebSocket = require('ws');
 // .env lives in server/ — use __dirname so it works from any CWD
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
@@ -333,6 +334,109 @@ Do not include any explanation, only the JSON object.`,
   }
 });
 
+// --- iFlytek helpers (shared by /api/xfyun-url and /api/transcribe) ---
+
+function buildXfyunSignedUrl(apiKey, apiSecret) {
+  const host = 'iat-api.xfyun.cn';
+  const urlPath = '/v2/iat';
+  const date = new Date().toUTCString();
+  const sigOrigin = `host: ${host}\ndate: ${date}\nGET ${urlPath} HTTP/1.1`;
+  const signature = crypto.createHmac('sha256', apiSecret).update(sigOrigin).digest('base64');
+  const authOrigin = `api_key="${apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+  const authorization = Buffer.from(authOrigin).toString('base64');
+  return `wss://${host}${urlPath}?authorization=${encodeURIComponent(authorization)}&date=${encodeURIComponent(date)}&host=${host}`;
+}
+
+// Server-side iFlytek IAT transcription over WebSocket.
+// pcm16Buffer: Buffer of raw PCM16LE samples at 16 kHz mono.
+// Returns a Promise<string> with the transcript.
+function xfyunTranscribe(pcm16Buffer, appid, signedUrl) {
+  return new Promise((resolve, reject) => {
+    const CHUNK = 8192;          // bytes per frame (~0.26 s of audio)
+    const FRAME_DELAY_MS = 40;   // pace frames at ~real-time speed
+    let transcript = '';
+    let offset = 0;
+    let frameCount = 0;
+    let settled = false;
+
+    const finish = (err, text) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (err) reject(err); else resolve(text);
+    };
+
+    const timer = setTimeout(() => {
+      ws.terminate();
+      finish(new Error('iFlytek transcription timeout'));
+    }, 30000);
+
+    const ws = new WebSocket(signedUrl);
+
+    ws.on('open', () => {
+      const sendNext = () => {
+        if (settled) return;
+        if (offset >= pcm16Buffer.length) {
+          // Final frame signals end-of-audio
+          ws.send(JSON.stringify({
+            data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' },
+          }));
+          return;
+        }
+        const chunk = pcm16Buffer.slice(offset, offset + CHUNK);
+        offset += CHUNK;
+        const audio = chunk.toString('base64');
+        const frame = frameCount === 0
+          ? {
+              common: { app_id: appid },
+              business: { language: 'en_us', domain: 'iat', accent: 'mandarin', vad_eos: 5000 },
+              data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio },
+            }
+          : { data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio } };
+        ws.send(JSON.stringify(frame));
+        frameCount++;
+        setTimeout(sendNext, FRAME_DELAY_MS);
+      };
+      sendNext();
+    });
+
+    ws.on('message', (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+        if (msg.code !== 0) { ws.close(); finish(new Error(`iFlytek code ${msg.code}: ${msg.message}`)); return; }
+        const words = msg.data?.result?.ws || [];
+        transcript += words.map(w => w.cw.map(c => c.w).join('')).join('');
+        if (msg.data?.status === 2) { ws.close(); finish(null, transcript.trim()); }
+      } catch (e) { ws.close(); finish(e); }
+    });
+
+    ws.on('error', (e) => finish(e));
+  });
+}
+
+// Receive base64-encoded PCM16 from mobile WeChat client, return English transcript
+app.post('/api/transcribe', async (req, res) => {
+  const { audio } = req.body;
+  if (!audio) return res.status(400).json({ error: 'Missing audio', text: '' });
+
+  const appid     = process.env.XFYUN_APPID;
+  const apiKey    = process.env.XFYUN_API_KEY;
+  const apiSecret = process.env.XFYUN_API_SECRET;
+  if (!appid || !apiKey || !apiSecret) {
+    return res.status(500).json({ error: 'iFlytek credentials not configured', text: '' });
+  }
+
+  try {
+    const pcm16Buffer = Buffer.from(audio, 'base64');
+    const signedUrl   = buildXfyunSignedUrl(apiKey, apiSecret);
+    const text        = await xfyunTranscribe(pcm16Buffer, appid, signedUrl);
+    res.json({ text });
+  } catch (err) {
+    console.error('Transcribe error:', err.message);
+    res.status(500).json({ error: 'Transcription failed', text: '' });
+  }
+});
+
 // Generate a time-limited signed WebSocket URL for iFlytek IAT
 // The APISecret never leaves the server; only the signed URL is returned
 app.get('/api/xfyun-url', (req, res) => {
@@ -344,17 +448,7 @@ app.get('/api/xfyun-url', (req, res) => {
     return res.status(500).json({ error: 'iFlytek credentials not configured in .env' });
   }
 
-  const host = 'iat-api.xfyun.cn';
-  const path = '/v2/iat';
-  const date = new Date().toUTCString();
-
-  const sigOrigin = `host: ${host}\ndate: ${date}\nGET ${path} HTTP/1.1`;
-  const signature = crypto.createHmac('sha256', apiSecret).update(sigOrigin).digest('base64');
-  const authOrigin = `api_key="${apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
-  const authorization = Buffer.from(authOrigin).toString('base64');
-
-  const url = `wss://${host}${path}?authorization=${encodeURIComponent(authorization)}&date=${encodeURIComponent(date)}&host=${host}`;
-  res.json({ url, appid });
+  res.json({ url: buildXfyunSignedUrl(apiKey, apiSecret), appid });
 });
 
 app.get('/health', (_, res) => res.json({ status: 'ok', model: MODEL }));
