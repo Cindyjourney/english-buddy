@@ -18,14 +18,11 @@ function applyVoiceStyle(key) {
 
   const profile = VoiceManager.getProfile();
 
-  // Update avatar + subtitle
   document.getElementById('buddy-avatar').textContent = profile.avatar;
   document.getElementById('buddy-subtitle').textContent = STYLE_SUBTITLES[key] || '';
 
-  // Update CSS accent variable
   document.documentElement.style.setProperty('--accent', STYLE_ACCENTS[key] || '#8b5cf6');
 
-  // Update button active states
   document.querySelectorAll('.voice-opt').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.style === key);
   });
@@ -35,98 +32,86 @@ document.addEventListener('DOMContentLoaded', async () => {
   UIManager.init();
   InterestManager._render(InterestManager.load());
 
-  const voiceBtn   = document.getElementById('voice-btn');
-  const sendBtn    = document.getElementById('send-btn');
-  const textInput  = document.getElementById('text-input');
-  const resetBtn   = document.getElementById('reset-btn');
+  const voiceBtn  = document.getElementById('voice-btn');
+  const voiceHint = document.getElementById('voice-hint');
+  const resetBtn  = document.getElementById('reset-btn');
   const messagesEl = document.getElementById('messages');
 
   // Init voice (async mic permission check)
   await VoiceManager.init(
     (transcript, isFinal) => {
-      textInput.value = transcript;
       if (isFinal && transcript.trim()) {
-        textInput.value = '';
         ChatManager.send(transcript.trim());
       }
     },
     () => {
       voiceBtn.classList.remove('recording');
       voiceBtn.title = '按住说英语';
+      if (voiceHint) voiceHint.textContent = '按住录音';
     }
   );
 
-  // Apply saved (or default) voice style on load
   applyVoiceStyle(VoiceManager.currentStyle);
 
   if (VoiceManager.isWeChatMode) {
-    // ── Mobile WeChat: tap button → native file recorder → iFlytek transcription ──
-    voiceBtn.title = '点击录音 🎙️';
+    // ── Mobile WeChat: tap → native audio recorder → iFlytek transcription ──
+    voiceBtn.title = '点击录音';
+    if (voiceHint) voiceHint.textContent = '点击录音';
+
     voiceBtn.addEventListener('click', async () => {
       if (ChatManager.isBusy || VoiceManager.isListening) return;
-      VoiceManager.unlockSpeech();   // unlock TTS while inside click (user gesture)
+      VoiceManager.unlockSpeech();
       VoiceManager.isListening = true;
       voiceBtn.classList.add('recording');
-      voiceBtn.title = '录音中… 点击停止';
+      if (voiceHint) voiceHint.textContent = '录音中…';
 
       const transcript = await VoiceManager.startWeChat();
 
       voiceBtn.classList.remove('recording');
-      voiceBtn.title = '点击录音 🎙️';
+      if (voiceHint) voiceHint.textContent = transcript ? '识别中…' : '点击录音';
       VoiceManager.isListening = false;
 
       if (transcript?.trim()) {
-        textInput.value = '';
         ChatManager.send(transcript.trim());
+        if (voiceHint) voiceHint.textContent = '点击录音';
+      } else {
+        if (voiceHint) voiceHint.textContent = '未收到录音，请重试';
+        setTimeout(() => { if (voiceHint) voiceHint.textContent = '点击录音'; }, 2000);
       }
     });
+
   } else if (!VoiceManager.isSupported) {
     voiceBtn.disabled = true;
-    voiceBtn.title = '麦克风不可用（检查浏览器权限）';
+    voiceBtn.title = '麦克风不可用';
+    if (voiceHint) voiceHint.textContent = '麦克风不可用';
+
   } else {
     // ── Normal browsers: hold-to-record via iFlytek WebSocket ──
+    voiceBtn.title = '按住说英语';
+    if (voiceHint) voiceHint.textContent = '按住录音';
 
-    // Hold-to-record — mouse
     voiceBtn.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      if (!VoiceManager.isSupported || ChatManager.isBusy) return;
+      if (ChatManager.isBusy) return;
       voiceBtn.classList.add('recording');
-      textInput.value = '';
+      if (voiceHint) voiceHint.textContent = '录音中…';
       VoiceManager.start();
     });
-    voiceBtn.addEventListener('mouseup',   () => VoiceManager.stop());
+    voiceBtn.addEventListener('mouseup',    () => VoiceManager.stop());
     voiceBtn.addEventListener('mouseleave', () => { if (VoiceManager.isListening) VoiceManager.stop(); });
 
-    // Hold-to-record — touch
     voiceBtn.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      if (!VoiceManager.isSupported || ChatManager.isBusy) return;
+      if (ChatManager.isBusy) return;
       voiceBtn.classList.add('recording');
-      textInput.value = '';
+      if (voiceHint) voiceHint.textContent = '录音中…';
       VoiceManager.start();
     });
     voiceBtn.addEventListener('touchend', (e) => { e.preventDefault(); VoiceManager.stop(); });
   }
 
-  // Voice style buttons always available (outside the if/else above for WeChat too)
   document.querySelectorAll('.voice-opt').forEach(btn => {
     btn.addEventListener('click', () => applyVoiceStyle(btn.dataset.style));
-  });
-
-  // Send — unlock TTS synchronously (required for iOS Safari) before going async
-  const doSend = () => {
-    VoiceManager.unlockSpeech();
-    const text = textInput.value.trim();
-    if (text && !ChatManager.isBusy) { textInput.value = ''; ChatManager.send(text); }
-  };
-  sendBtn.addEventListener('click', doSend);
-  textInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
-  });
-  // On mobile (especially iOS WeChat), soft keyboard pushes layout up.
-  // Scroll to bottom after keyboard appears so latest message stays visible.
-  textInput.addEventListener('focus', () => {
-    setTimeout(() => UIManager.scrollToBottom(), 300);
   });
 
   // Reset

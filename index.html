@@ -128,17 +128,12 @@
   <!-- Chat Messages -->
   <main id="messages" class="messages"></main>
 
-  <!-- Footer Input -->
+  <!-- Footer: voice-only input -->
   <footer class="app-footer">
-    <button id="voice-btn" class="voice-btn" title="按住说英语">🎤</button>
-    <input
-      id="text-input"
-      class="text-input"
-      type="text"
-      placeholder="Type in English... 🌟"
-      autocomplete="off"
-    />
-    <button id="send-btn" class="send-btn">➤</button>
+    <div class="voice-wrap">
+      <button id="voice-btn" class="voice-btn" title="点击录音">🎤</button>
+      <p class="voice-hint" id="voice-hint">点击录音</p>
+    </div>
   </footer>
 
   <!-- Word Popup -->
@@ -159,8 +154,8 @@
     </div>
   </div>
 
-  <!-- Hidden audio file input for WeChat voice recording -->
-  <input type="file" id="wechat-audio-input" accept="audio/*" capture="microphone" style="display:none" aria-hidden="true">
+  <!-- Hidden audio file input for WeChat voice recording (no capture= to avoid opening camera) -->
+  <input type="file" id="wechat-audio-input" accept="audio/*" style="display:none" aria-hidden="true">
 
   <script src="js/config.js"></script>
   <script src="js/interests.js"></script>
