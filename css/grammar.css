@@ -605,3 +605,19 @@ body {
   .ex-title { font-size: 1.5rem; }
   .ex-question { font-size: 1.1rem; }
 }
+
+/* Small phones: iPhone SE (375px), most Android (360px) */
+@media (max-width: 375px) {
+  .stage-header { font-size: 1.5rem; padding: 14px 14px; }
+  .stage-icon { font-size: 1.8rem; }
+  .topic-icon { font-size: 2.5rem; }
+  .topic-title { font-size: 1.2rem; }
+  .topic-subtitle { font-size: 0.72rem; }
+  .topic-stars { font-size: 1.1rem; }
+  .ex-title { font-size: 1.3rem; }
+  .ex-question { font-size: 1rem; }
+  .option-btn { font-size: 0.92rem; padding: 14px 10px; }
+  .grammar-header .header-title { font-size: 1rem; }
+  .fill-input { font-size: 1rem; }
+  .arrange-word { font-size: 0.9rem; padding: 8px 12px; }
+}

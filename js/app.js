@@ -61,7 +61,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (!VoiceManager.isSupported) {
     voiceBtn.disabled = true;
-    voiceBtn.title = '麦克风不可用（检查浏览器权限）';
+    voiceBtn.title = isWeChat ? '请使用文字输入 ✏️' : '麦克风不可用（检查浏览器权限）';
+    if (isWeChat) voiceBtn.style.opacity = '0.35';
   }
 
   // Voice style buttons
@@ -99,6 +100,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   sendBtn.addEventListener('click', doSend);
   textInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+  });
+  // On mobile (especially iOS WeChat), soft keyboard pushes layout up.
+  // Scroll to bottom after keyboard appears so latest message stays visible.
+  textInput.addEventListener('focus', () => {
+    setTimeout(() => UIManager.scrollToBottom(), 300);
   });
 
   // Reset

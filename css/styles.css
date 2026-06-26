@@ -34,7 +34,8 @@ body {
   font-size: 18px;
   background: var(--purple-bg);
   color: var(--text-dark);
-  height: 100dvh;
+  height: 100vh;     /* fallback for older WeChat/iOS */
+  height: 100dvh;    /* shrinks when soft keyboard appears */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -427,4 +428,18 @@ body {
   .bubble { max-width: 90%; font-size: 17px; }
   .voice-opt { font-size: 12px; min-width: 78px; padding: 6px 8px; }
   .header-title h1 { font-size: 17px; }
+}
+
+/* Small phones: iPhone SE (375px), most Android (360px) */
+@media (max-width: 375px) {
+  .header-title h1 { font-size: 15px; }
+  .header-title p { font-size: 11px; }
+  .buddy-avatar { width: 40px; height: 40px; font-size: 1.3rem; }
+  .learn-btn { padding: 10px 8px; font-size: 0.82rem; }
+  .learn-btn-icon { font-size: 1.5rem; }
+  .mode-tab { font-size: 0.8rem; padding: 7px 0; max-width: 140px; }
+  .bubble { max-width: 93%; font-size: 15px; }
+  .voice-opt { min-width: 64px; font-size: 11px; padding: 5px 6px; }
+  .text-input { font-size: 15px; }
+  .voice-btn { width: 44px; height: 44px; font-size: 1.3rem; }
 }

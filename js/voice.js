@@ -52,6 +52,9 @@ const VoiceManager = {
     // Load saved style
     this.currentStyle = localStorage.getItem('eb_voice_style') || 'sunny_girl';
 
+    // WeChat built-in browser blocks getUserMedia — skip mic entirely
+    if (isWeChat) return;
+
     if (!navigator.mediaDevices?.getUserMedia) return;
     try {
       const s = await navigator.mediaDevices.getUserMedia({ audio: true });

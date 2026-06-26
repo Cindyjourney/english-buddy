@@ -48,7 +48,7 @@ const ChatManager = {
     const historySnapshot = [...this.history];
 
     try {
-      if (canStream) {
+      if (canStream && !isWeChat) {
         await this._sendStreaming(userText, historySnapshot, interests, isSessionStart);
       } else {
         await this._sendJSON(userText, historySnapshot, interests, isSessionStart);
