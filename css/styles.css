@@ -408,6 +408,19 @@ body {
   .header-title h1 { font-size: 17px; }
 }
 
+/* WeChat Android guidance banner */
+.wechat-tip {
+  margin: 10px 14px 0;
+  padding: 12px 16px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #92400e;
+  text-align: center;
+}
+
 /* Small phones: iPhone SE (375px), most Android (360px) */
 @media (max-width: 375px) {
   .header-title h1 { font-size: 15px; }
