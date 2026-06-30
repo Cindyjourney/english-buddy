@@ -34,6 +34,7 @@ const ChatManager = {
   clear() {
     this.history = [];
     this.turnCount = 0;
+    StatsManager.reset();
     localStorage.removeItem(this._key);
   },
 
@@ -42,6 +43,7 @@ const ChatManager = {
     this.isBusy = true;
 
     UIManager.addBubble('user', userText);
+    if (!isSessionStart) StatsManager.addMessage(userText);
     UIManager.showTyping();
 
     const interests = InterestManager.load();

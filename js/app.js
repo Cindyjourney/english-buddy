@@ -25,6 +25,7 @@ function applyVoiceStyle(key) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   UIManager.init();
+  StatsManager.load();
   InterestManager._render(InterestManager.load());
 
   const voiceBtn   = document.getElementById('voice-btn');

@@ -2,14 +2,16 @@ const UIManager = {
   messagesEl: null,
   wordPopupEl: null,
   badgePopupEl: null,
+  milestonePopupEl: null,
   headerBadgesEl: null,
   _earnedBadges: [],
 
   init() {
-    this.messagesEl     = document.getElementById('messages');
-    this.wordPopupEl    = document.getElementById('word-popup');
-    this.badgePopupEl   = document.getElementById('badge-popup');
-    this.headerBadgesEl = document.getElementById('header-badges');
+    this.messagesEl      = document.getElementById('messages');
+    this.wordPopupEl     = document.getElementById('word-popup');
+    this.badgePopupEl    = document.getElementById('badge-popup');
+    this.milestonePopupEl= document.getElementById('milestone-popup');
+    this.headerBadgesEl  = document.getElementById('header-badges');
 
     try {
       this._earnedBadges = JSON.parse(localStorage.getItem('eb_badges') || '[]');
@@ -79,6 +81,15 @@ const UIManager = {
     setTimeout(() => el.classList.remove('visible'), 3000);
   },
 
+  showMilestone(emoji, text) {
+    const el = this.milestonePopupEl;
+    if (!el) return;
+    el.querySelector('#milestone-emoji').textContent = emoji;
+    el.querySelector('#milestone-text').textContent  = text;
+    el.classList.add('visible');
+    setTimeout(() => el.classList.remove('visible'), 3000);
+  },
+
   showBadgePopup(type) {
     const BADGE_INFO = {
       first_word:    { emoji: '🌟', label: 'First Word!' },
@@ -88,6 +99,10 @@ const UIManager = {
       animal_friend: { emoji: '🐾', label: 'Animal Friend!' },
       word_collector:{ emoji: '📚', label: 'Word Collector!' },
       super_star:    { emoji: '⭐', label: 'Super Star!' },
+      food_critic:   { emoji: '🍜', label: 'Food Critic!' },
+      travel_teller: { emoji: '✈️', label: 'Travel Teller!' },
+      storyteller:   { emoji: '📖', label: 'Storyteller!' },
+      opinion_star:  { emoji: '💡', label: 'Opinion Star!' },
     };
     const info = BADGE_INFO[type] || { emoji: '🏆', label: 'Badge!' };
 
@@ -110,6 +125,7 @@ const UIManager = {
     const BADGE_EMOJIS = {
       first_word: '🌟', brave_speaker: '🎤', dino_expert: '🦕',
       space_captain: '🚀', animal_friend: '🐾', word_collector: '📚', super_star: '⭐',
+      food_critic: '🍜', travel_teller: '✈️', storyteller: '📖', opinion_star: '💡',
     };
     this.headerBadgesEl.innerHTML = this._earnedBadges
       .map(b => `<span class="header-badge" title="${b}">${BADGE_EMOJIS[b] || '🏆'}</span>`)
