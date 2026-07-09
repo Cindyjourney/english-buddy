@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>字幕提取器 🎬</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #0f0c29; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #e2e8f0; }
+
+    .sub-header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-bottom: 1px solid rgba(139,92,246,.3);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .sub-header-title { font-size: 1.2rem; font-weight: 800; color: #fff; }
+    .sub-header-back {
+      margin-left: auto;
+      padding: 6px 14px;
+      background: rgba(139,92,246,.2);
+      border: 1px solid rgba(139,92,246,.4);
+      border-radius: 20px;
+      color: #a78bfa;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .sub-header-back:hover { background: rgba(139,92,246,.35); }
+
+    .container { max-width: 680px; margin: 0 auto; padding: 24px 16px 80px; }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed rgba(139,92,246,.5);
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(139,92,246,.05);
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #8b5cf6;
+      background: rgba(139,92,246,.12);
+    }
+    .drop-zone-icon { font-size: 3rem; margin-bottom: 12px; }
+    .drop-zone-title { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .drop-zone-sub { font-size: 0.85rem; color: #94a3b8; }
+    #file-input { display: none; }
+
+    /* Preview */
+    .video-preview { display: none; margin-top: 16px; }
+    .video-preview.visible { display: flex; align-items: center; gap: 14px; }
+    .preview-icon { font-size: 2.5rem; }
+    .preview-info { flex: 1; }
+    .preview-name { font-weight: 700; color: #fff; font-size: 0.95rem; word-break: break-all; }
+    .preview-meta { font-size: 0.8rem; color: #94a3b8; margin-top: 3px; }
+    .preview-change { font-size: 0.78rem; color: #8b5cf6; cursor: pointer; margin-top: 4px; text-decoration: underline; }
+
+    /* Start button */
+    .start-btn {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      padding: 14px;
+      background: linear-gradient(135deg, #7c3aed, #db2777);
+      border: none;
+      border-radius: 14px;
+      color: #fff;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .start-btn:hover { opacity: 0.9; }
+    .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Progress */
+    .progress-wrap { display: none; margin-top: 20px; }
+    .progress-wrap.visible { display: block; }
+
+    .upload-progress-bar {
+      height: 8px;
+      background: rgba(255,255,255,.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .upload-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #7c3aed, #db2777);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .upload-progress-label { font-size: 0.82rem; color: #94a3b8; margin-bottom: 16px; }
+
+    .steps { display: flex; flex-direction: column; gap: 10px; }
+    .step-item { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #64748b; }
+    .step-item.active { color: #c4b5fd; }
+    .step-item.done { color: #34d399; }
+    .step-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #334155; flex-shrink: 0;
+    }
+    .step-item.active .step-dot { background: #8b5cf6; box-shadow: 0 0 8px #8b5cf6; animation: pulse 1.2s infinite; }
+    .step-item.done .step-dot { background: #34d399; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+    /* Error */
+    .error-box { display: none; margin-top: 20px; padding: 14px 16px; background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); border-radius: 12px; color: #fca5a5; font-size: 0.9rem; }
+    .error-box.visible { display: block; }
+    .retry-btn { margin-top: 10px; padding: 8px 16px; background: rgba(239,68,68,.2); border: 1px solid rgba(239,68,68,.4); border-radius: 8px; color: #fca5a5; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+
+    /* Result */
+    .result-wrap { display: none; margin-top: 24px; }
+    .result-wrap.visible { display: block; }
+    .result-label { font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+    .result-textarea {
+      width: 100%;
+      min-height: 200px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px;
+      padding: 14px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      resize: vertical;
+      font-family: inherit;
+    }
+    .result-textarea:focus { outline: none; border-color: rgba(139,92,246,.5); }
+
+    .result-actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    .action-btn {
+      padding: 9px 18px;
+      border-radius: 10px;
+      border: 1px solid rgba(139,92,246,.4);
+      background: rgba(139,92,246,.15);
+      color: #c4b5fd;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .action-btn:hover { background: rgba(139,92,246,.3); }
+    .action-btn.primary {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      border-color: #7c3aed;
+      color: #fff;
+    }
+    .action-btn.primary:hover { opacity: 0.9; }
+
+    .copy-toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1e293b;
+      border: 1px solid rgba(139,92,246,.4);
+      color: #c4b5fd;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.3s;
+      pointer-events: none;
+    }
+    .copy-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .info-box { margin-top: 20px; padding: 12px 14px; background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.2); border-radius: 10px; font-size: 0.82rem; color: #93c5fd; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+  <div class="sub-header">
+    <div style="font-size:1.6rem">🎬</div>
+    <div class="sub-header-title">字幕提取器</div>
+    <a href="/" class="sub-header-back">← 返回首页</a>
+  </div>
+
+  <div class="container">
+
+    <!-- Drop zone -->
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-zone-icon">📁</div>
+      <div class="drop-zone-title">拖拽视频到此，或点击选择</div>
+      <div class="drop-zone-sub">支持 MP4 / MOV / WebM &nbsp;·&nbsp; 最大 500MB &nbsp;·&nbsp; 建议 10 分钟以内</div>
+      <input type="file" id="file-input" accept="video/*" />
+    </div>
+
+    <!-- File preview -->
+    <div class="video-preview" id="video-preview">
+      <div class="preview-icon">🎞️</div>
+      <div class="preview-info">
+        <div class="preview-name" id="preview-name">—</div>
+        <div class="preview-meta" id="preview-meta">—</div>
+        <div class="preview-change" id="preview-change">更换文件</div>
+      </div>
+    </div>
+
+    <!-- Start button -->
+    <button class="start-btn" id="start-btn" disabled>开始提取字幕</button>
+
+    <!-- Info -->
+    <div class="info-box">
+      💡 识别使用讯飞 IAT 语音识别，适合清晰的英文语音。视频越长上传越慢，请耐心等待。
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="upload-progress-bar">
+        <div class="upload-progress-fill" id="upload-fill"></div>
+      </div>
+      <div class="upload-progress-label" id="upload-label">准备上传...</div>
+      <div class="steps" id="steps">
+        <div class="step-item" id="step-upload"><div class="step-dot"></div><span>上传视频</span></div>
+        <div class="step-item" id="step-extract"><div class="step-dot"></div><span>提取音频</span></div>
+        <div class="step-item" id="step-transcribe"><div class="step-dot"></div><span>语音识别</span></div>
+        <div class="step-item" id="step-done"><div class="step-dot"></div><span>生成字幕</span></div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-box" id="error-box">
+      <div id="error-msg"></div>
+      <button class="retry-btn" id="retry-btn">重试</button>
+    </div>
+
+    <!-- Result -->
+    <div class="result-wrap" id="result-wrap">
+      <div class="result-label">提取结果（可手动校对）</div>
+      <textarea class="result-textarea" id="result-text" spellcheck="false"></textarea>
+      <div class="result-actions">
+        <button class="action-btn primary" id="btn-srt">⬇ 下载 SRT</button>
+        <button class="action-btn" id="btn-txt">⬇ 下载 TXT</button>
+        <button class="action-btn" id="btn-copy">复制文本</button>
+        <button class="action-btn" id="btn-again" style="margin-left:auto">提取另一个</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="copy-toast" id="copy-toast">已复制到剪贴板</div>
+
+  <script src="js/subtitle.js"></script>
+</body>
+</html>

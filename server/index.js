@@ -2,10 +2,16 @@ const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 const OpenAI = require('openai');
 const WebSocket = require('ws');
+const multer = require('multer');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
 // .env lives in server/ — use __dirname so it works from any CWD
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 const app = express();
 app.use(cors({ origin: '*' }));
@@ -568,6 +574,246 @@ app.get('/api/xfyun-url', (req, res) => {
 });
 
 app.get('/health', (_, res) => res.json({ status: 'ok', model: MODEL }));
+
+// ── Subtitle extraction ────────────────────────────────────────────────────────
+
+const SUBTITLE_TMP = '/tmp/subtitle-uploads';
+if (!fs.existsSync(SUBTITLE_TMP)) fs.mkdirSync(SUBTITLE_TMP, { recursive: true });
+
+const subtitleUpload = multer({
+  dest: SUBTITLE_TMP,
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
+});
+
+// Extract 16kHz mono PCM16 from a video file using ffmpeg
+function extractAudioFFmpeg(inputPath, outputPCMPath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .noVideo()
+      .audioFrequency(16000)
+      .audioChannels(1)
+      .audioCodec('pcm_s16le')
+      .format('s16le')
+      .on('error', reject)
+      .on('end', resolve)
+      .save(outputPCMPath);
+  });
+}
+
+// Transcribe one PCM16 buffer chunk via iFlytek IAT.
+// Returns array of { text, startMs, endMs }.
+// chunkOffsetMs: time offset (ms) of this chunk within the full audio.
+function xfyunTranscribeVideo(pcm16Buffer, appid, signedUrl, chunkOffsetMs, durationSec) {
+  return new Promise((resolve, reject) => {
+    const CHUNK = 8192;
+    const FRAME_DELAY_MS = 40;
+    const timeoutMs = Math.max(90000, durationSec * 1500);
+
+    const segments = [];
+    let offset = 0;
+    let frameCount = 0;
+    let settled = false;
+    let wordBuffer = '';
+    let bufStartMs = chunkOffsetMs;
+
+    const finish = (err, segs) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (err) reject(err); else resolve(segs);
+    };
+
+    const timer = setTimeout(() => {
+      ws.terminate();
+      // Return whatever we have so far rather than failing entire job
+      finish(null, segments);
+    }, timeoutMs);
+
+    const ws = new WebSocket(signedUrl);
+
+    ws.on('open', () => {
+      const sendNext = () => {
+        if (settled) return;
+        if (offset >= pcm16Buffer.length) {
+          ws.send(JSON.stringify({ data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } }));
+          return;
+        }
+        const chunk = pcm16Buffer.slice(offset, offset + CHUNK);
+        offset += CHUNK;
+        const audio = chunk.toString('base64');
+        const frame = frameCount === 0
+          ? {
+              common: { app_id: appid },
+              business: { language: 'en_us', domain: 'iat', accent: 'mandarin', vad_eos: 10000 },
+              data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio },
+            }
+          : { data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio } };
+        ws.send(JSON.stringify(frame));
+        frameCount++;
+        setTimeout(sendNext, FRAME_DELAY_MS);
+      };
+      sendNext();
+    });
+
+    ws.on('message', (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+        if (msg.code !== 0) {
+          ws.close();
+          finish(null, segments); // partial result on error
+          return;
+        }
+        const words = msg.data?.result?.ws || [];
+        words.forEach(w => {
+          const text = w.cw.map(c => c.w).join('');
+          const bgMs = w.bg ? w.bg * 10 + chunkOffsetMs : null;
+          const edMs = w.ed ? w.ed * 10 + chunkOffsetMs : null;
+          wordBuffer += text;
+          if (bgMs !== null && segments.length === 0) bufStartMs = bgMs;
+          // Split into segments at sentence boundaries
+          const sentenceEnd = wordBuffer.match(/[.!?]\s*$/);
+          if (sentenceEnd) {
+            segments.push({ text: wordBuffer.trim(), startMs: bufStartMs, endMs: edMs ?? bufStartMs + wordBuffer.split(' ').length * 400 });
+            wordBuffer = '';
+            bufStartMs = edMs ?? bufStartMs;
+          }
+        });
+        if (msg.data?.status === 2) {
+          if (wordBuffer.trim()) {
+            segments.push({ text: wordBuffer.trim(), startMs: bufStartMs, endMs: bufStartMs + wordBuffer.split(' ').length * 400 });
+          }
+          ws.close();
+          finish(null, segments);
+        }
+      } catch (e) {
+        ws.close();
+        finish(null, segments);
+      }
+    });
+
+    ws.on('error', () => finish(null, segments));
+  });
+}
+
+// Split large PCM buffer into 5-minute chunks and transcribe sequentially
+async function transcribeInChunks(pcmBuffer, totalDurationSec, appid) {
+  const CHUNK_SEC = 5 * 60; // 5 minutes
+  const BYTES_PER_SEC = 16000 * 2; // 16kHz, 16-bit mono
+  const chunkSize = CHUNK_SEC * BYTES_PER_SEC;
+
+  const allSegments = [];
+
+  for (let offset = 0; offset < pcmBuffer.length; offset += chunkSize) {
+    const chunk = pcmBuffer.slice(offset, offset + chunkSize);
+    const chunkOffsetMs = Math.round((offset / BYTES_PER_SEC) * 1000);
+    const chunkDurationSec = chunk.length / BYTES_PER_SEC;
+
+    const signedUrl = buildXfyunSignedUrl(
+      process.env.XFYUN_API_KEY,
+      process.env.XFYUN_API_SECRET
+    );
+
+    const segments = await xfyunTranscribeVideo(chunk, appid, signedUrl, chunkOffsetMs, chunkDurationSec);
+    allSegments.push(...segments);
+  }
+
+  // If iFlytek returned no timing (bg/ed all 0), fall back to even distribution
+  const hasRealTiming = allSegments.some(s => s.startMs > 0);
+  if (!hasRealTiming && allSegments.length > 0) {
+    const msPerSeg = (totalDurationSec * 1000) / allSegments.length;
+    allSegments.forEach((s, i) => {
+      s.startMs = Math.round(i * msPerSeg);
+      s.endMs   = Math.round((i + 1) * msPerSeg);
+    });
+  }
+
+  return allSegments;
+}
+
+function toSRTTime(ms) {
+  const h  = Math.floor(ms / 3600000);
+  const m  = Math.floor((ms % 3600000) / 60000);
+  const s  = Math.floor((ms % 60000) / 1000);
+  const ms2= ms % 1000;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms2).padStart(3,'0')}`;
+}
+
+function toSRT(segments) {
+  return segments.map((seg, i) => (
+    `${i + 1}\n${toSRTTime(seg.startMs)} --> ${toSRTTime(seg.endMs)}\n${seg.text}\n`
+  )).join('\n');
+}
+
+app.post('/api/subtitle', subtitleUpload.single('video'), async (req, res) => {
+  // SSE headers — keeps the long-running connection alive on Render
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  const send = (obj) => {
+    try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {}
+  };
+
+  // Heartbeat to keep Render connection alive
+  const heartbeat = setInterval(() => send({ type: 'ping' }), 10000);
+
+  const videoPath = req.file?.path;
+  const pcmPath   = videoPath ? videoPath + '.pcm' : null;
+
+  try {
+    if (!videoPath) {
+      send({ type: 'error', message: '未收到文件，请重试。' });
+      return;
+    }
+
+    const appid     = process.env.XFYUN_APPID;
+    const apiKey    = process.env.XFYUN_API_KEY;
+    const apiSecret = process.env.XFYUN_API_SECRET;
+    if (!appid || !apiKey || !apiSecret) {
+      send({ type: 'error', message: '服务器未配置讯飞凭据，请联系管理员。' });
+      return;
+    }
+
+    // Step 1: Extract audio
+    send({ type: 'progress', step: 'extract', message: '正在提取音频...' });
+    await extractAudioFFmpeg(videoPath, pcmPath);
+
+    // Step 2: Read PCM
+    const pcmBuffer = fs.readFileSync(pcmPath);
+    const durationSec = pcmBuffer.length / (16000 * 2);
+
+    // Step 3: Transcribe in chunks
+    const estSec = Math.ceil(durationSec / 2);
+    send({ type: 'progress', step: 'transcribe', message: `语音识别中（预计约 ${estSec} 秒）...` });
+
+    const segments = await transcribeInChunks(pcmBuffer, durationSec, appid);
+
+    // Step 4: Format
+    const text = segments.map(s => s.text).join(' ').trim();
+    const srt  = segments.length > 0 ? toSRT(segments) : '';
+
+    if (!text) {
+      send({ type: 'error', message: '未检测到英文语音，请确认视频中有清晰的英文音频。' });
+      return;
+    }
+
+    send({ type: 'done', text, srt });
+  } catch (err) {
+    console.error('Subtitle error:', err.message);
+    const msg = err.message.includes('ffmpeg') || err.message.includes('Invalid')
+      ? '音频提取失败，请确认视频格式为 MP4/MOV/WebM 并重试。'
+      : '识别失败，请重试。';
+    send({ type: 'error', message: msg });
+  } finally {
+    clearInterval(heartbeat);
+    // Clean up temp files
+    [videoPath, pcmPath].forEach(p => {
+      if (p) try { fs.unlinkSync(p); } catch {}
+    });
+    res.end();
+  }
+});
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`English Buddy server running: http://localhost:${PORT}`));
