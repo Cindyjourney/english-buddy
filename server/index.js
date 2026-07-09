@@ -600,34 +600,26 @@ function extractAudioFFmpeg(inputPath, outputPCMPath) {
   });
 }
 
-// Transcribe one PCM16 buffer chunk via iFlytek IAT.
-// Returns array of { text, startMs, endMs }.
-// chunkOffsetMs: time offset (ms) of this chunk within the full audio.
-function xfyunTranscribeVideo(pcm16Buffer, appid, signedUrl, chunkOffsetMs, durationSec) {
-  return new Promise((resolve, reject) => {
+// Transcribe one PCM16 buffer chunk via iFlytek IAT. Returns plain text string.
+function xfyunTranscribeVideo(pcm16Buffer, appid, signedUrl, durationSec) {
+  return new Promise((resolve) => {
     const CHUNK = 8192;
     const FRAME_DELAY_MS = 40;
     const timeoutMs = Math.max(90000, durationSec * 1500);
 
-    const segments = [];
+    let rawText = '';
     let offset = 0;
     let frameCount = 0;
     let settled = false;
-    let wordBuffer = '';
-    let bufStartMs = chunkOffsetMs;
 
-    const finish = (err, segs) => {
+    const finish = (text) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      if (err) reject(err); else resolve(segs);
+      resolve(text);
     };
 
-    const timer = setTimeout(() => {
-      ws.terminate();
-      // Return whatever we have so far rather than failing entire job
-      finish(null, segments);
-    }, timeoutMs);
+    const timer = setTimeout(() => { ws.terminate(); finish(rawText); }, timeoutMs);
 
     const ws = new WebSocket(signedUrl);
 
@@ -641,10 +633,11 @@ function xfyunTranscribeVideo(pcm16Buffer, appid, signedUrl, chunkOffsetMs, dura
         const chunk = pcm16Buffer.slice(offset, offset + CHUNK);
         offset += CHUNK;
         const audio = chunk.toString('base64');
+        // No accent param — works better for general English content
         const frame = frameCount === 0
           ? {
               common: { app_id: appid },
-              business: { language: 'en_us', domain: 'iat', accent: 'mandarin', vad_eos: 10000 },
+              business: { language: 'en_us', domain: 'iat', vad_eos: 10000, ptt: 0 },
               data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio },
             }
           : { data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio } };
@@ -658,76 +651,71 @@ function xfyunTranscribeVideo(pcm16Buffer, appid, signedUrl, chunkOffsetMs, dura
     ws.on('message', (raw) => {
       try {
         const msg = JSON.parse(raw.toString());
-        if (msg.code !== 0) {
-          ws.close();
-          finish(null, segments); // partial result on error
-          return;
-        }
+        if (msg.code !== 0) { ws.close(); finish(rawText); return; }
         const words = msg.data?.result?.ws || [];
-        words.forEach(w => {
-          const text = w.cw.map(c => c.w).join('');
-          const bgMs = w.bg ? w.bg * 10 + chunkOffsetMs : null;
-          const edMs = w.ed ? w.ed * 10 + chunkOffsetMs : null;
-          wordBuffer += text;
-          if (bgMs !== null && segments.length === 0) bufStartMs = bgMs;
-          // Split into segments at sentence boundaries
-          const sentenceEnd = wordBuffer.match(/[.!?]\s*$/);
-          if (sentenceEnd) {
-            segments.push({ text: wordBuffer.trim(), startMs: bufStartMs, endMs: edMs ?? bufStartMs + wordBuffer.split(' ').length * 400 });
-            wordBuffer = '';
-            bufStartMs = edMs ?? bufStartMs;
-          }
-        });
-        if (msg.data?.status === 2) {
-          if (wordBuffer.trim()) {
-            segments.push({ text: wordBuffer.trim(), startMs: bufStartMs, endMs: bufStartMs + wordBuffer.split(' ').length * 400 });
-          }
-          ws.close();
-          finish(null, segments);
-        }
-      } catch (e) {
-        ws.close();
-        finish(null, segments);
-      }
+        rawText += words.map(w => w.cw.map(c => c.w).join('')).join('');
+        if (msg.data?.status === 2) { ws.close(); finish(rawText); }
+      } catch { ws.close(); finish(rawText); }
     });
 
-    ws.on('error', () => finish(null, segments));
+    ws.on('error', () => finish(rawText));
   });
 }
 
-// Split large PCM buffer into 5-minute chunks and transcribe sequentially
+// Split large PCM buffer into 5-minute chunks and transcribe sequentially. Returns raw text.
 async function transcribeInChunks(pcmBuffer, totalDurationSec, appid) {
-  const CHUNK_SEC = 5 * 60; // 5 minutes
-  const BYTES_PER_SEC = 16000 * 2; // 16kHz, 16-bit mono
+  const CHUNK_SEC = 5 * 60;
+  const BYTES_PER_SEC = 16000 * 2;
   const chunkSize = CHUNK_SEC * BYTES_PER_SEC;
-
-  const allSegments = [];
+  const parts = [];
 
   for (let offset = 0; offset < pcmBuffer.length; offset += chunkSize) {
     const chunk = pcmBuffer.slice(offset, offset + chunkSize);
-    const chunkOffsetMs = Math.round((offset / BYTES_PER_SEC) * 1000);
     const chunkDurationSec = chunk.length / BYTES_PER_SEC;
-
-    const signedUrl = buildXfyunSignedUrl(
-      process.env.XFYUN_API_KEY,
-      process.env.XFYUN_API_SECRET
-    );
-
-    const segments = await xfyunTranscribeVideo(chunk, appid, signedUrl, chunkOffsetMs, chunkDurationSec);
-    allSegments.push(...segments);
+    const signedUrl = buildXfyunSignedUrl(process.env.XFYUN_API_KEY, process.env.XFYUN_API_SECRET);
+    const text = await xfyunTranscribeVideo(chunk, appid, signedUrl, chunkDurationSec);
+    parts.push(text.trim());
   }
 
-  // If iFlytek returned no timing (bg/ed all 0), fall back to even distribution
-  const hasRealTiming = allSegments.some(s => s.startMs > 0);
-  if (!hasRealTiming && allSegments.length > 0) {
-    const msPerSeg = (totalDurationSec * 1000) / allSegments.length;
-    allSegments.forEach((s, i) => {
-      s.startMs = Math.round(i * msPerSeg);
-      s.endMs   = Math.round((i + 1) * msPerSeg);
-    });
-  }
+  return parts.filter(Boolean).join(' ');
+}
 
-  return allSegments;
+// Use DeepSeek to add punctuation, fix errors, and split into subtitle lines (~10 words each).
+async function polishWithDeepSeek(rawText) {
+  const response = await openai.chat.completions.create({
+    model: MODEL,
+    max_tokens: 4096,
+    messages: [
+      {
+        role: 'system',
+        content: `You are a professional subtitle editor. You receive raw ASR (automatic speech recognition) output from an English video — it has no punctuation and may contain mis-recognized words.
+
+Your job:
+1. Add correct punctuation and capitalization
+2. Fix obvious recognition errors based on context (e.g. "there" vs "their", homophones, garbled proper nouns)
+3. Split the text into subtitle segments of 8–14 words each, ending at natural phrase or sentence boundaries
+4. Return ONLY the subtitle segments, one per line — no numbers, no timestamps, no extra commentary`,
+      },
+      { role: 'user', content: rawText },
+    ],
+  });
+  const cleaned = response.choices[0]?.message?.content?.trim() || rawText;
+  return cleaned.split('\n').map(l => l.trim()).filter(Boolean);
+}
+
+// Assign evenly distributed timestamps to subtitle lines based on word-count proportion.
+function buildTimedSegments(lines, totalDurationSec) {
+  const totalMs = totalDurationSec * 1000;
+  const wordCounts = lines.map(l => l.split(/\s+/).length);
+  const totalWords = wordCounts.reduce((a, b) => a + b, 0) || 1;
+  let cursor = 0;
+  return lines.map((text, i) => {
+    const duration = Math.round((wordCounts[i] / totalWords) * totalMs);
+    const startMs = cursor;
+    const endMs   = cursor + Math.max(duration, 1000); // at least 1 second per line
+    cursor = endMs;
+    return { text, startMs, endMs };
+  });
 }
 
 function toSRTTime(ms) {
@@ -783,20 +771,25 @@ app.post('/api/subtitle', subtitleUpload.single('video'), async (req, res) => {
     const pcmBuffer = fs.readFileSync(pcmPath);
     const durationSec = pcmBuffer.length / (16000 * 2);
 
-    // Step 3: Transcribe in chunks
+    // Step 3: Transcribe in chunks (raw text)
     const estSec = Math.ceil(durationSec / 2);
     send({ type: 'progress', step: 'transcribe', message: `语音识别中（预计约 ${estSec} 秒）...` });
 
-    const segments = await transcribeInChunks(pcmBuffer, durationSec, appid);
+    const rawText = await transcribeInChunks(pcmBuffer, durationSec, appid);
 
-    // Step 4: Format
-    const text = segments.map(s => s.text).join(' ').trim();
-    const srt  = segments.length > 0 ? toSRT(segments) : '';
-
-    if (!text) {
+    if (!rawText.trim()) {
       send({ type: 'error', message: '未检测到英文语音，请确认视频中有清晰的英文音频。' });
       return;
     }
+
+    // Step 4: AI polish — fix errors, add punctuation, split into subtitle lines
+    send({ type: 'progress', step: 'transcribe', message: 'AI 优化中（修正错误 + 断句）...' });
+    const lines = await polishWithDeepSeek(rawText);
+
+    // Step 5: Assign timestamps and format
+    const segments = buildTimedSegments(lines, durationSec);
+    const text = lines.join(' ');
+    const srt  = toSRT(segments);
 
     send({ type: 'done', text, srt });
   } catch (err) {
