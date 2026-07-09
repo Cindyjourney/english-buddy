@@ -171,14 +171,23 @@ const VoiceManager = {
 
     const profile = this.getProfile();
 
-    const clean = text
+    // Build a clean, naturally speakable version — strip meta-instructions, keep spoken content
+    let clean = text
       .replace(/<<WORD: ([^>]+)>>/g, '$1')
       .replace(/<<BADGE: \w+>>/g, '')
       .replace(/\[INTERESTS:[^\]]*\]/g, '')
       .replace(/\[SESSION_START\]/g, '')
       .replace(/\p{Extended_Pictographic}/gu, '')
+      // Normalize smart/curly quotes to straight quotes for reliable regex matching
+      .replace(/[‘’]/g, "'")
+      .replace(/[“”]/g, '"')
+      // "Say: 'I see a T-Rex!'" → "I see a T-Rex!" — instruction frame → model sentence only
+      .replace(/\b(?:Say(?:\s+(?:after\s+me|with\s+me|it|the\s+whole\s+sentence|all\s+the\s+words))?|Try|Repeat|Can\s+you\s+(?:say|try)(?:\s+it)?|Now\s+you\s+say(?:\s+it)?|Let(?:'s|\s+us)\s+say)\s*:?\s*["']([^"']+)["']/gi, '$1')
+      // Remove parenthetical instructions: (finish the sentence!), (say the whole thing!), etc.
+      .replace(/\([^)]{0,120}\)/g, '')
+      // Normalize ALL CAPS → natural case so TTS prosody isn't thrown off
       .replace(/\b([A-Z]{2,})\b/g, w => w[0] + w.slice(1).toLowerCase())
-      .replace(/\.{2,}/g, ',')
+      .replace(/\.{2,}/g, '. ')
       .replace(/([!?]){2,}/g, '$1')
       .replace(/\s+/g, ' ')
       .trim();
